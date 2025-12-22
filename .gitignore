@@ -1,0 +1,36 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+logs/
+*.log
+
+# Runtime
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# Build
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+coverage/
+/*.tgz
+
+# Next/optional
+.next/
+coverage/
+
+# Ignore local cookiejar if exists
+cookiejar.txt
+
