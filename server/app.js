@@ -33,12 +33,19 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
 
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin && NODE_ENV !== 'production') return cb(null, true); // allow tools/curl
-      if (corsOrigins.length === 0 || corsOrigins.includes('*')) return cb(null, true);
-      if (origin && corsOrigins.includes(origin)) return cb(null, true);
-      cb(new Error('Not allowed by CORS'));
-    },
+      origin: (origin, cb) => {
+        if (!origin && NODE_ENV !== 'production') return cb(null, true); // allow tools/curl
+        if (corsOrigins.length === 0 || corsOrigins.includes('*')) return cb(null, true);
+        // Exact match from configured origins
+        if (origin && corsOrigins.includes(origin)) return cb(null, true);
+        // Allow subdomains of quickclean.store (e.g. https://www.quickclean.store)
+        try {
+          if (origin && typeof origin === 'string' && origin.endsWith('quickclean.store')) return cb(null, true);
+        } catch (e) {
+          // ignore
+        }
+        cb(new Error('Not allowed by CORS'));
+      },
     credentials: true,
   })
 );

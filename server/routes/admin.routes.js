@@ -28,7 +28,8 @@ router.post('/login', async (req, res) => {
       sameSite: isProd ? 'None' : 'Lax',
       secure: isProd ? true : false,
     });
-    res.json({ ok: true });
+    // Also return the token in JSON so frontend auth context can store it
+    res.json({ ok: true, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
