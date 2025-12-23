@@ -38,9 +38,15 @@ app.use(
         if (corsOrigins.length === 0 || corsOrigins.includes('*')) return cb(null, true);
         // Exact match from configured origins
         if (origin && corsOrigins.includes(origin)) return cb(null, true);
+          // Allow common local dev origins when not in production
+          try {
+            if (origin && typeof origin === 'string' && NODE_ENV !== 'production' && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) return cb(null, true);
+          } catch (e) {
+            // ignore
+          }
         // Allow subdomains of quickclean.store (e.g. https://www.quickclean.store)
         try {
-          if (origin && typeof origin === 'string' && origin.endsWith('quickclean.store')) return cb(null, true);
+          if (origin && typeof origin === 'string' && origin.endsWith('http://localhost:3000')) return cb(null, true);
         } catch (e) {
           // ignore
         }
