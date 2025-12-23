@@ -32,9 +32,14 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean)
   .map((u) => u.replace(/\/$/, '')); // remove trailing slash
 
-// Always allow the main public frontend domains in production in addition to any configured origins
-const defaultFrontendOrigins = ['https://www.quickclean.store', 'https://quickclean.store'];
-const allowedOrigins = Array.from(new Set([...corsOrigins, ...(NODE_ENV === 'production' ? defaultFrontendOrigins : [])]));
+// Always allow the main public frontend domains and local dev origins in addition to any configured origins
+const defaultFrontendOrigins = [
+  'https://www.quickclean.store',
+  'https://quickclean.store',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+const allowedOrigins = Array.from(new Set([...corsOrigins, ...defaultFrontendOrigins]));
 
 app.use(
   cors({
