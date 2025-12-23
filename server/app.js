@@ -29,30 +29,32 @@ const { NODE_ENV } = process.env;
 const corsOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((s) => s.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((u) => u.replace(/\/$/, '')); // remove trailing slash
+
+// Always allow the main public frontend domains in production in addition to any configured origins
+const defaultFrontendOrigins = ['https://www.quickclean.store', 'https://quickclean.store'];
+const allowedOrigins = Array.from(new Set([...corsOrigins, ...(NODE_ENV === 'production' ? defaultFrontendOrigins : [])]));
 
 app.use(
   cors({
-      origin: (origin, cb) => {
-        if (!origin && NODE_ENV !== 'production') return cb(null, true); // allow tools/curl
-        if (corsOrigins.length === 0 || corsOrigins.includes('*')) return cb(null, true);
-        // Exact match from configured origins
-        if (origin && corsOrigins.includes(origin)) return cb(null, true);
-          // Allow common local dev origins when not in production
-          try {
-            if (origin && typeof origin === 'string' && NODE_ENV !== 'production' && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) return cb(null, true);
-          } catch (e) {
-            // ignore
-          }
-        // Allow subdomains of quickclean.store (e.g. https://www.quickclean.store)
-        try {
-          if (origin && typeof origin === 'string' && origin.endsWith('http://localhost:3000')) return cb(null, true);
-        } catch (e) {
-          // ignore
-        }
-        cb(new Error('Not allowed by CORS'));
-      },
+    origin: (origin, cb) => {
+      // allow server-to-server, curl, Postman, etc when origin is empty
+      if (!origin) return cb(null, true);
+
+      const originNorm = origin.replace(/\/$/, '');
+      if (allowedOrigins.includes('*')) return cb(null, true);
+      if (allowedOrigins.includes(originNorm)) return cb(null, true);
+
+      // allow localhost dev when not in production
+      if (NODE_ENV !== 'production' && (originNorm.startsWith('http://localhost') || originNorm.startsWith('http://127.0.0.1'))) {
+        return cb(null, true);
+      }
+
+      return cb(new Error('Not allowed by CORS'));
+    },
     credentials: true,
+    optionsSuccessStatus: 200,
   })
 );
 

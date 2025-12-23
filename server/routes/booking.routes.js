@@ -4,6 +4,7 @@ const Customer = require('../models/Customer.model');
 const stores = require('../data/stores');
 const Product = require('../models/Product.model');
 const Store = require('../models/Store.model');
+const StoreStats = require('../models/StoreStats.model');
 const { normalizePhone, isValidPhone } = require('../utils/phone');
 
 const router = express.Router();
@@ -200,6 +201,44 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get a single booking by ID (including customer and order summary)
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bookingRaw = await Booking.findById(id).populate('customer').populate('product');
+    if (!bookingRaw) return res.status(404).json({ error: 'Booking not found' });
+
+    let booking = (typeof bookingRaw.toObject === 'function') ? bookingRaw.toObject() : bookingRaw;
+
+    // Ensure booking includes a usable orderSummary for frontend consumption
+    try {
+      if ((!booking.orderSummary || !booking.orderSummary.total) && booking.product) {
+        const prod = booking.product;
+        const it = {
+          productId: prod._id,
+          name: prod.name || prod.title || 'Product',
+          qty: 1,
+          unitPrice: Number(prod.price || 0),
+          subtotal: Number(prod.price || 0),
+        };
+        booking.items = booking.items && booking.items.length ? booking.items : [it];
+        booking.orderSummary = booking.orderSummary && booking.orderSummary.items && booking.orderSummary.items.length ? booking.orderSummary : {
+          items: [it],
+          subtotal: it.subtotal,
+          tax: 0,
+          shipping: 0,
+          total: it.subtotal,
+        };
+      }
+    } catch (e) { /* noop */ }
+
+    res.json({ booking });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch booking' });
+  }
+});
+
 // Assign a booking to a rider/agent
 router.post('/:id/assign', async (req, res) => {
   try {
@@ -227,10 +266,36 @@ router.patch('/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
-    if (!['pending', 'assigned', 'completed', 'cancelled'].includes(status)) return res.status(400).json({ error: 'invalid status' });
+    if (!['pending', 'assigned', 'in-progress', 'completed', 'cancelled'].includes(status)) return res.status(400).json({ error: 'invalid status' });
+
+    const prev = await Booking.findById(id).populate('product');
+    if (!prev) return res.status(404).json({ error: 'Booking not found' });
 
     const booking = await Booking.findByIdAndUpdate(id, { status }, { new: true }).populate('customer');
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    // If this is the first time the booking becomes completed, increment store's completedOrders
+    if (prev.status !== 'completed' && status === 'completed') {
+      try {
+        let storeId = null;
+        if (prev.product && prev.product.store) {
+          storeId = prev.product.store;
+        } else if (prev.store) {
+          const storeDoc = await Store.findOne({ name: prev.store });
+          if (storeDoc) storeId = storeDoc._id;
+        }
+
+        if (storeId) {
+          await StoreStats.findOneAndUpdate(
+            { store: storeId },
+            { $inc: { completedOrders: 1 } },
+            { new: true, upsert: true }
+          );
+        }
+      } catch (e) {
+        console.error('Failed to increment completedOrders for store', e);
+      }
+    }
     // Emit socket update to order room
     try {
       const io = req.app.get('io');
