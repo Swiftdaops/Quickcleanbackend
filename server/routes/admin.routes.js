@@ -9,13 +9,22 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const admin = await Admin.findOne({ username });
+    const uname = String(username || '').trim().toLowerCase();
+    const pw = String(password || '');
+    const admin = await Admin.findOne({ username: uname });
     if (!admin) return res.status(401).json({ error: 'Invalid credentials' });
 
     // Verify password using bcrypt. In tests you can seed a plain password or
     // set admin.password to 'hashedpassword' for convenience, but production
     // should always store hashed passwords and we verify them here.
-    const matches = await bcrypt.compare(password, admin.password);
+    // Support bcrypt-hashed passwords (preferred) and legacy/plaintext passwords (dev/backwards compatibility).
+    const stored = String(admin.password || '');
+    let matches = false;
+    if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
+      matches = await bcrypt.compare(pw, stored);
+    } else {
+      matches = pw === stored;
+    }
     if (!matches) return res.status(401).json({ error: 'Invalid credentials' });
 
     const secret = process.env.JWT_SECRET || 'test-secret';

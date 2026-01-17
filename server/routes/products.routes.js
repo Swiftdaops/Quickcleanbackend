@@ -3,17 +3,20 @@ const { body, param, validationResult } = require('express-validator');
 const Product = require('../models/Product.model');
 const ProductStats = require('../models/ProductStats.model');
 const StoreStats = require('../models/StoreStats.model');
+const auth = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
 // Update product fields: name, price, isAvailable
 router.patch(
   '/:id',
+  auth,
   [
     param('id').isMongoId(),
     body('name').optional().isString().trim().notEmpty(),
     body('price').optional().isFloat({ gt: 0 }),
     body('isAvailable').optional().isBoolean(),
+    body('quantity').optional().isInt({ min: 0 }),
     body('image').optional().isString().trim().isURL().withMessage('image must be a valid URL'),
     body('description').optional().isString().trim().isLength({ max: 1000 }).withMessage('description too long'),
   ],
@@ -27,6 +30,7 @@ router.patch(
       if (req.body.name !== undefined) updates.name = req.body.name;
       if (req.body.price !== undefined) updates.price = req.body.price;
       if (req.body.isAvailable !== undefined) updates.isAvailable = req.body.isAvailable;
+      if (req.body.quantity !== undefined) updates.quantity = req.body.quantity;
       if (req.body.image !== undefined) updates.image = req.body.image;
       if (req.body.description !== undefined) updates.description = req.body.description;
 
@@ -40,7 +44,38 @@ router.patch(
   }
 );
 
-module.exports = router;
+// Delete a product (admin-only). Also deletes associated ProductStats.
+router.delete(
+  '/:id',
+  auth,
+  [param('id').isMongoId()],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+      if (!req.admin || !['admin', 'superadmin'].includes(req.admin.role)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const { id } = req.params;
+      const product = await Product.findByIdAndDelete(id);
+      if (!product) return res.status(404).json({ error: 'Product not found' });
+
+      try {
+        await ProductStats.deleteOne({ product: product._id });
+      } catch (e) {
+        // ignore stats cleanup failure
+        console.warn('Failed to delete ProductStats for product', product._id, e && e.message ? e.message : e);
+      }
+
+      return res.json({ message: 'Deleted', product });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to delete product' });
+    }
+  }
+);
 
 // React to a product (like or dislike)
 router.post(
@@ -84,3 +119,5 @@ router.post(
     }
   }
 );
+
+module.exports = router;

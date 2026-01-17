@@ -205,8 +205,12 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[DEBUG] GET /api/bookings/:id -> id=${id} ip=${req.ip} time=${new Date().toISOString()}`);
     const bookingRaw = await Booking.findById(id).populate('customer').populate('product');
-    if (!bookingRaw) return res.status(404).json({ error: 'Booking not found' });
+    if (!bookingRaw) {
+      console.log(`[DEBUG] booking not found for id=${id}`);
+      return res.status(404).json({ error: 'Booking not found' });
+    }
 
     let booking = (typeof bookingRaw.toObject === 'function') ? bookingRaw.toObject() : bookingRaw;
 
@@ -232,6 +236,7 @@ router.get('/:id', async (req, res) => {
       }
     } catch (e) { /* noop */ }
 
+    console.log(`[DEBUG] booking found for id=${id}`);
     res.json({ booking });
   } catch (err) {
     console.error(err);

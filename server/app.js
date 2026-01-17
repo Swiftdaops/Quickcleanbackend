@@ -12,6 +12,7 @@ const bookingV2Router = require('./routes/booking');
 const storesRouter = require('./routes/stores.routes');
 const servicesRouter = require('./routes/services.routes');
 const productsRouter = require('./routes/products.routes');
+const searchRouter = require('./routes/search.routes');
 
 const app = express();
 
@@ -36,8 +37,7 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
 const defaultFrontendOrigins = [
   'https://www.quickclean.store',
   'https://quickclean.store',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
+  'http://localhost:3000'
 ];
 const allowedOrigins = Array.from(new Set([...corsOrigins, ...defaultFrontendOrigins]));
 
@@ -79,6 +79,8 @@ app.use('/api/bookings/admin', bookingAdminRouter);
 app.use('/api/stores', storesRouter);
 app.use('/api/services', servicesRouter);
 app.use('/api/products', productsRouter);
+// Universal search across stores and products
+app.use('/api/search', searchRouter);
 // New v2 booking routes (paths: /booking, /bookings)
 app.use('/', bookingV2Router);
 

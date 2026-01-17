@@ -20,12 +20,17 @@ const PORT = process.env.PORT || 3001;
       .map((s) => s.trim())
       .filter(Boolean);
 
+    const defaultFrontendOrigins = ['https://www.quickclean.store', 'https://quickclean.store', 'http://localhost:3000'];
+    const allowedOrigins = Array.from(new Set([...corsOrigins, ...defaultFrontendOrigins])).map((u) => u.replace(/\/$/, ''));
+
     const io = new Server(server, {
       cors: {
         origin: (origin, cb) => {
           if (!origin && NODE_ENV !== 'production') return cb(null, true);
-          if (corsOrigins.length === 0 || corsOrigins.includes('*')) return cb(null, true);
-          if (origin && corsOrigins.includes(origin)) return cb(null, true);
+
+          const originNorm = origin ? String(origin).replace(/\/$/, '') : origin;
+          if (allowedOrigins.length === 0 || allowedOrigins.includes('*')) return cb(null, true);
+          if (originNorm && allowedOrigins.includes(originNorm)) return cb(null, true);
           return cb(new Error('Not allowed by CORS'));
         },
         credentials: true,

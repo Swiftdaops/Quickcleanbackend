@@ -7,9 +7,17 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin.model');
 
-const ADMIN_USERNAME = process.env.SEED_ADMIN_USERNAME || 'Tobechukwu';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Qc@Admin#2025!';
 const ADMIN_WHATSAPP = process.env.SEED_ADMIN_WHATSAPP || process.env.ADMIN_WHATSAPP || '+2349079529836';
+
+function parseUsernames() {
+  const list = process.env.SEED_ADMIN_USERNAMES || process.env.SEED_ADMIN_USERNAME || 'Tobechukwu';
+  return String(list)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => s.toLowerCase());
+}
 
 async function seedAdmin() {
   if (!process.env.DB_URI) {
@@ -20,26 +28,29 @@ async function seedAdmin() {
   // Modern Mongoose (v6+) ignores/use the default parser options; pass the URI only
   await mongoose.connect(process.env.DB_URI);
 
-  const existing = await Admin.findOne({ username: ADMIN_USERNAME });
   const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
-  if (existing) {
-    // Update whatsapp number and password if needed (do not lower role)
-    existing.whatsappNumber = ADMIN_WHATSAPP;
-    // If you want to force-update the password, set SEED_ADMIN_FORCE=true in env
-    if (process.env.SEED_ADMIN_FORCE === 'true') {
-      existing.password = hashedPassword;
+  const usernames = parseUsernames();
+  for (const username of usernames) {
+    const existing = await Admin.findOne({ username });
+    if (existing) {
+      // Update whatsapp number and password if needed (do not lower role)
+      existing.whatsappNumber = ADMIN_WHATSAPP;
+      // If you want to force-update the password, set SEED_ADMIN_FORCE=true in env
+      if (process.env.SEED_ADMIN_FORCE === 'true') {
+        existing.password = hashedPassword;
+      }
+      await existing.save();
+      console.log('Admin updated successfully:', username);
+    } else {
+      await Admin.create({
+        username,
+        password: hashedPassword,
+        role: 'admin',
+        whatsappNumber: ADMIN_WHATSAPP,
+      });
+      console.log('Admin seeded successfully:', username);
     }
-    await existing.save();
-    console.log('Admin updated successfully:', ADMIN_USERNAME);
-  } else {
-    await Admin.create({
-      username: ADMIN_USERNAME,
-      password: hashedPassword,
-      role: 'admin',
-      whatsappNumber: ADMIN_WHATSAPP,
-    });
-    console.log('Admin seeded successfully:', ADMIN_USERNAME);
   }
   await mongoose.disconnect();
   process.exit(0);

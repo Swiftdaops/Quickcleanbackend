@@ -20,10 +20,11 @@ const CustomerSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Normalize phone numbers before saving
-CustomerSchema.pre('save', function (next) {
+// Use synchronous middleware (no `next` callback) so mongoose/kareem
+// can execute this safely whether using promise-based or callback flow.
+CustomerSchema.pre('save', function () {
   if (this.phone) this.phone = normalizePhone(this.phone);
   if (this.name) this.name = String(this.name).trim();
-  next();
 });
 
 module.exports = mongoose.model('Customer', CustomerSchema);
